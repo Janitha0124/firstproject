@@ -1,20 +1,56 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 export default function TextInput() {
   const [text, setText] = useState("");
   const [texts, setTexts] = useState([]);
 
-  const handleInput = () => {
+  useEffect(() => {
+    fetchTexts();
+  }, []);
+
+  const fetchTexts = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/userInput");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setTexts(data);
+      } else {
+        console.error("Invalid data format:", data);
+        setTexts([]);
+      }
+    } catch (error) {
+      console.error("Error fetching texts:", error);
+      setTexts([]);
+    }
+  };
+
+  const handleInput = async () => {
+    const existingContents = texts.map((item) => item.content.toLowerCase());
+
     const separatedText = text
       .split(",")
       .map((t) => t.trim())
-      .filter((t) => t.length > 0 && !texts.includes(t));
-    setTexts([...texts, ...separatedText]);
+      .filter(
+        (t) => t.length > 0 && !existingContents.includes(t.toLowerCase())
+      );
+
+    for (let t of separatedText) {
+      await fetch("http://localhost:5000/api/userInput", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: t }),
+      });
+    }
+    fetchTexts();
     setText("");
   };
 
-  const handleDelete = (indexToDelete) => {
-    setTexts(texts.filter((_, index) => index !== indexToDelete));
+  const handleDelete = async (id) => {
+    // setTexts(texts.filter((_, index) => index !== indexToDelete));
+    await fetch(`http://localhost:5000/api/userInput/${id}`, {
+      method: "DELETE",
+    });
+    fetchTexts();
   };
 
   const handleKeyDown = (e) => {
@@ -40,10 +76,10 @@ export default function TextInput() {
             key={index}
             className="border bg-green-200  px-3 py-1 mr-2 mb-2 rounded-2xl flex item-center"
           >
-            {text}
+            {text.content}
             <button
               className="ml-2 bg-green-300 rounded-full px-2 text-sm"
-              onClick={() => handleDelete(index)}
+              onClick={() => handleDelete(text.id)}
             >
               ✖
             </button>
